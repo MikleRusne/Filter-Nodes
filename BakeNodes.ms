@@ -11,6 +11,7 @@ fn AssignMap map forwardNode = (
 			forwardNode.map = map;
 		)
 		Mix:(
+			print("AssignMap called with mixnode as forward, should not happen");
 			forwardNode.map1 = map;
 		)
 		default:(
@@ -58,7 +59,11 @@ fn isDesired _node = (
 		Mix: return true;
 		ColorMap: return true;
 		Noise: return true;
-		default: return false;
+		Falloff: return false;
+		default: (
+			format "Unhandled % in isDesired, you should really explicitly add it. Returning true\n" (classof _node);
+			return true;
+		)
 	)
 )
 
@@ -104,8 +109,8 @@ fn GetNext _node = (
 			---What do
 			-- Absolutely nothing, this situation should not occur
 			-- But just in case
-			print("GetNext for Mix called, should not happen.");
-			if ( (isDesired _node.map1) == true ) then return _node.map1 else return GetNext _node.map1;
+			print("GetNext for Mix called, should not happen. Returning the node itself");
+			return _node
 		)
 		default:(
 			print("Encountered Unhandled in GetNext")
@@ -180,40 +185,68 @@ fn CleanTree _startNode = (
 
 		-- Change to caseof situation
 		-- run test first tho	
-		if classof(_previousNode)==Mix  then (
+		-- Tests are fine
+
+		
+		case classof(_previousNode) of (
 			
-			-- Handle cases for when
-			-- 	a map input is disabled, return color
-			
-			print("Mix node encountered");
-			--Somehow clean individual Color nodes
-			--It is implied that there is no dependency cycle
-			
-			if( (_previousNode.map1Enabled) == true) then (
-				print("Cleaning mix input1");
-				_previousNode.map1 = CleanTree _previousNode.map1;
-			)else(
-				print("Mix has no map1, not cleaning it")
+			Mix:(
+				-- Handle cases for when
+				-- 	a map input is disabled, return color
+				
+				print("Mix node encountered");
+				--Somehow clean individual Color nodes
+				--It is implied that there is no dependency cycle
+				
+				if( (_previousNode.map1Enabled) == true) then (
+					print("Cleaning mix input1");
+					_previousNode.map1 = CleanTree _previousNode.map1;
+				)else(
+					print("Mix has no map1, not cleaning it")
+				)
+				if( (_previousNode.map2Enabled) == true) then (
+					print("Cleaning mix input2");
+					_previousNode.map2 = CleanTree _previousNode.map2;
+				)else(
+					print("Mix has no map2, not cleaning it")
+				)
+				if( (_previousNode.maskEnabled) == true) then (
+					print("Cleaning mix mask");
+					_previousNode.mask = CleanTree _previousNode.mask;
+				)
+				return _firstNode;
 			)
-			if( (_previousNode.map2Enabled) == true) then (
-				print("Cleaning mix input2");
-				_previousNode.map2 = CleanTree _previousNode.map2;
-			)else(
-				print("Mix has no map2, not cleaning it")
+			CompositeTextureMap:(
+				-- Composite nodes have these arrays
+				--		mapEnabled
+				--		maskEnabled
+				--		mapList
+				--		mask
+				print("Composite node");
+				--Iterate over mapEnabled, put the corresponding maplist member through cleanTree if enabled, then mask member if enabled
+				format "mapEnabled: %, maskEnabled: %, maplist: %, mask: %\n" _previousNode.mapEnabled.count _previousNode.maskEnabled.count _previousNode.maplist.count _previousNode.mask.count 
+				for i=1 to _previousNode.mapEnabled.count do (
+					if ( (_previousNode.mapEnabled[i]) == true) then (
+						--Clean it
+						_previousNode.mapList[i] = CleanTree (_previousNode.mapList[i])
+					)
+					if ( (_previousNode.maskEnabled[i]) == true) then (
+						_previousNode.mask[i] = CleanTree (_previousNode.mask[i]);
+					)
+					
+				)
+				return _previousNode;
 			)
-			if( (_previousNode.maskEnabled) == true) then (
-				print("Cleaning mix mask");
-				_previousNode.mask = CleanTree _previousNode.mask;
-			)
-			return _firstNode;
-		)else(
-			_currentNode = CleanNode _currentNode _previousNode;
-			if (_currentNode == undefined) then _hasPreviousNode = false;
-			if (isEndPoint _currentNode == true) then _hasPreviousNode = false;
-			
-			if (_safety>_safetyLimit) then (
-				print("Safety triggered");
-				_hasPreviousNode =false;
+			default: (
+				format "Node not special, of type %\n" (classof _previousNode)
+				_currentNode = CleanNode _currentNode _previousNode;
+				if (_currentNode == undefined) then _hasPreviousNode = false;
+				if (isEndPoint _currentNode == true) then _hasPreviousNode = false;
+				
+				if (_safety>_safetyLimit) then (
+					print("Safety triggered");
+					_hasPreviousNode =false;
+				)
 			)
 		)
 	)
@@ -221,11 +254,13 @@ fn CleanTree _startNode = (
 )
 
 
+
 _inputMaterial = $.material;
 _newInput = CleanTree (copy $.material.diffuseMap);
-y = rendermap _newInput filename:(maxFilePath + $.material.name + ".png") size:[1024,1024];
+
+$.material.diffuseMap =  _newInput;
+y = rendermap ($.material.diffuseMap) filename:(maxFilePath + $.material.name + ".png") size:[1024,1024];
 save y
 close y
-_neode = BitmapTexture bitmap:y;
-rendermap _newInput;
-$.material.diffuseMap =  _newInput;
+_neeode = BitmapTexture bitmap: y;
+$.material.opacitymap = _neeode;
