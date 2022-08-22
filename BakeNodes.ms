@@ -68,20 +68,43 @@ fn GetNext _node = (
 	format "Getnext called on %\n" _node;
 	case classof(_node) of(
 		Falloff:(
-			if ( (isDesired _node.map1) ==true ) then (
-				print("Get next found a desired map in falloff node, returning it");
-				return _node.map1 
+			--If falloff has a map1, check map1 and try to return it
+			-- Should probably change it to return undefined if there are no maps
+			if ( (_node.map1On == true ) ) then (
+				
+				if ( (isDesired _node.map1) ==true ) then (
+					print("Get next found a desired map in falloff node, returning it");
+					return _node.map1 
+				)else (
+					print("Falloff doesn't have desired node, calling recursively on map1");
+					return GetNext _node.map1;
+				)
 			)else (
-				print("Falloff doesn't have desired node, calling recursively on map1");
-				return GetNext _node.map1;
+				
+				--See if there's a map2
+				if ( (_node.map2On) == true ) then (
+						if ( (isDesired _node.map2) ==true ) then (
+						print("Get next found a desired map in falloff node map2, returning it");
+						return _node.map2
+					)else (
+						print("Falloff doesn't have desired node, calling recursively on map2");
+						return GetNext _node.map2;
+					)
+				)else(
+					--Not even a map2, just return color1
+					return _node.color1
+				)
 			)
+			
 		)
 		ColorCorrection:(
 			if ( (isDesired _node.map) ==true ) then return _node.map else return GetNext _node.map;
 		)
 		Mix:(
 			---What do
-			print("GetNext for Mix is under development, returning first map for now");
+			-- Absolutely nothing, this situation should not occur
+			-- But just in case
+			print("GetNext for Mix called, should not happen.");
 			if ( (isDesired _node.map1) == true ) then return _node.map1 else return GetNext _node.map1;
 		)
 		default:(
@@ -153,17 +176,35 @@ fn CleanTree _startNode = (
 		format "PreviousNode: % | Current Node: %\n" _previousNode.name _currentNode.name
 		
 		-- Cases for when a node has several inputs
-		-- Ignoring falloff because even if it has several inputs, only map1 is important...except sometimes		
+		-- Ignoring falloff because even if it has several inputs, only map1 is important...except sometimes
+
+		-- Change to caseof situation
+		-- run test first tho	
 		if classof(_previousNode)==Mix  then (
+			
+			-- Handle cases for when
+			-- 	a map input is disabled, return color
+			
 			print("Mix node encountered");
 			--Somehow clean individual Color nodes
 			--It is implied that there is no dependency cycle
-			print("Cleaning mix input1");
-			_previousNode.map1 = CleanTree _previousNode.map1;
-			print("Cleaning mix input2");
-			_previousNode.map2 = CleanTree _previousNode.map2;
-			print("Cleaning mix mask");
-			_previousNode.mask = CleanTree _previousNode.mask;
+			
+			if( (_previousNode.map1Enabled) == true) then (
+				print("Cleaning mix input1");
+				_previousNode.map1 = CleanTree _previousNode.map1;
+			)else(
+				print("Mix has no map1, not cleaning it")
+			)
+			if( (_previousNode.map2Enabled) == true) then (
+				print("Cleaning mix input2");
+				_previousNode.map2 = CleanTree _previousNode.map2;
+			)else(
+				print("Mix has no map2, not cleaning it")
+			)
+			if( (_previousNode.maskEnabled) == true) then (
+				print("Cleaning mix mask");
+				_previousNode.mask = CleanTree _previousNode.mask;
+			)
 			return _firstNode;
 		)else(
 			_currentNode = CleanNode _currentNode _previousNode;
