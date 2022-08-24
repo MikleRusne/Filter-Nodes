@@ -11,7 +11,7 @@ fn AssignMap map forwardNode = (
 			forwardNode.map = map;
 		)
 		Mix:(
-			print("AssignMap called with mixnode as forward, should not happen");
+			print("AssignMap called with mixnode as forward, REALLY should not happen");
 			forwardNode.map1 = map;
 		)
 		default:(
@@ -263,4 +263,4 @@ save y;
 close y;
 _neeode = BitmapTexture bitmap: y;
 -- Still can't seem to be able to bake it
- $.material.opacitymap = _neeode;
+$.material.opacitymap = _neeode;
